@@ -1,0 +1,25 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastapi-sqlalchemy-app
+    ports:
+      - "8086:8086"
+    env_file:
+      - .env
+    environment:
+      APP_MODULE: "main:app"
+      HOST: "0.0.0.0"
+      PORT: 8086
+    volumes:
+      - .:/app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8086"]
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge
