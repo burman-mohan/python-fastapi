@@ -25,3 +25,7 @@ def get_all_files(directory: DirectoryId, db: Session = Depends(get_db)):
 def delete_file(delete_file: FileDelete, db: Session = Depends(get_db)):
     status = file.delete_file(delete_file, db)
     return status
+
+@file_router.get("/get_document/{file_name}")
+async def get_document_stream(file_name: str, db: Session = Depends(get_db)):
+    return file.get_document_stream(file_name, db)

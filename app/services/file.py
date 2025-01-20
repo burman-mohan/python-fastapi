@@ -1,5 +1,7 @@
+import os
+from pathlib import Path
 from typing import Annotated
-
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi import Depends, HTTPException, UploadFile, Form
 from sqlalchemy.orm import Session
 
@@ -66,3 +68,16 @@ def delete_file(delete_file: FileDelete, db: Session = Depends(get_db)):
     db.commit()
     print("result: ", result)
     return True
+
+def get_document_stream(file_name: str, db: Session = Depends(get_db)):
+    file = db.query(File).filter(File.name == file_name).first()
+    file_path = Path(file.file_path)
+
+    if file_path.exists() and file_path.is_file():
+        file_size = os.path.getsize(file_path)
+        # Open the file and stream its content
+        file = open(file_path, "rb")
+        return StreamingResponse(file, media_type="application/octet-stream",
+                                 headers={"Content-Length": str(file_size)})
+    else:
+        return {"error": "File not found"}

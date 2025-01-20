@@ -67,6 +67,13 @@ class ChatRequest(BaseModel):
     messages: List[ClientMessage]
     llm: str
     collection_name: str
+    server_ip: str
+
+
+class FetchJsonRequest(BaseModel):
+    model: str
+    directory_id: str
+    file_id: str
 
 
 

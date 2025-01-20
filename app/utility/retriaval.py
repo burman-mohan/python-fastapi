@@ -65,8 +65,20 @@ def chat_prompt_v2():
     )
     return contextualize_q_prompt
 
+def extract_source(chunk, server_ip):
+    print("Inside extract_source")
+    contexts = chunk["context"]
+    extracted_data = [
+        {
+            "source": server_ip + "/api/file/get_document/" + os.path.basename(context.metadata["source"]),
+            "page": context.metadata["page"] if context.metadata["source"].endswith(".pdf") else None
+        }
+        for context in contexts
+        if context.metadata["source"].endswith(".pdf") or context.metadata["source"].endswith(".docx")
+    ]
+    return extracted_data
 
-async def stream_chat(question, collection_name, chat_history):
+async def stream_chat(question, collection_name, chat_history, server_ip):
     print("Inside stream chat")
     db = Qdrant(client=qdrant_client, embeddings=get_embedding_model_hf("sentence-transformers/all-MiniLM-L6-v2"), collection_name=collection_name)
     # condense_question_prompt, qa_prompt = prompt_templates.chat_prompt_v2()
@@ -82,7 +94,7 @@ async def stream_chat(question, collection_name, chat_history):
     qa_system_prompt = """You are an assistant for question-answering tasks. \
     Use the following pieces of retrieved context to answer the question. \
     If you don't know the answer, just say that you don't know. \
-    Use three sentences maximum and keep the answer concise.\
+    Explain the answer in the best possible way.\
 
     {context}"""
     qa_prompt = ChatPromptTemplate.from_messages(
@@ -108,12 +120,21 @@ async def stream_chat(question, collection_name, chat_history):
     # print(ai_msg_2)
     # print(ai_msg_2["answer"])
     # print('*****************************************************')
-    chain = rag_chain.pick("answer")
-    for chunk in chain.stream({"input": question, "chat_history": chat_history}, config={'callbacks': [ConsoleCallbackHandler()]}):
-        print(f"{chunk}|", end="")
-        await asyncio.sleep(0.1)
-        yield f"{chunk}"
-    yield "\n\nsource: https://www.example.com"
+    # chain = rag_chain.pick("answer")
+    sources =[]
+    for chunk in rag_chain.stream({"input": question, "chat_history": chat_history}):
+        # print(f"{chunk}|", end="")
+        if "context" in chunk:
+            sources =extract_source(chunk, server_ip)
+        if "answer" in chunk:
+            await asyncio.sleep(0.1)
+            yield f"{chunk['answer']}"
+    if len(sources)>0:
+        # yield "\n\nsource: https://www.example.com"
+        yield "\n\n Source:\n"
+        for source in sources:
+            yield f"\n  Document: {source['source']} | Page: {source['page']}\n"
+
 
 
 async def fake_data_streamer():

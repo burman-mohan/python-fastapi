@@ -1,9 +1,12 @@
 from typing import List
-
-from fastapi import APIRouter, Query
+from sqlalchemy.orm import Session
+from fastapi import APIRouter, Query, Depends
 from fastapi.responses import StreamingResponse
-from app.utility import retriaval
-from app.schemas import ChatRequest, ClientMessage
+
+from app.dependency import get_db
+from app.models import File
+from app.utility import retriaval, retrieval_json
+from app.schemas import ChatRequest, ClientMessage, FetchJsonRequest
 
 llm_router = APIRouter()
 
@@ -23,8 +26,17 @@ async def handle_chat_data_test(request: ChatRequest, protocol: str = Query('dat
     llm = request.llm
     collection_name = request.collection_name
     # y = ChatMessageTest(sender='AI', text='test message reply of ' + request.text)
-    response = StreamingResponse(retriaval.stream_chat(user_query, collection_name, get_chat_history(messages)), media_type='text/event-stream')
+    response = StreamingResponse(retriaval.stream_chat(user_query, collection_name, get_chat_history(messages), request.server_ip), media_type='text/event-stream')
     return response
+
+
+
+@llm_router.post("/file/json")
+async def get_file_json(request: FetchJsonRequest, protocol: str = Query('data'), db: Session = Depends(get_db)):
+    file: File = db.query(File).filter(File.id == request.file_id).first()
+    summary_json = retrieval_json.extract_json(file.collection_name)
+    print(summary_json)
+    return summary_json
 
 def get_chat_history(messages_list: List[ClientMessage]):
     chat_history = []
